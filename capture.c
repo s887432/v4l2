@@ -27,14 +27,14 @@ int init_caps(int fd)
 {
 	struct v4l2_format fmt = {0};
 	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	fmt.fmt.pix.width = 640;
-	fmt.fmt.pix.height = 480;
+	fmt.fmt.pix.width = 1640;
+	fmt.fmt.pix.height = 1232;
 	fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_GREY;
 	fmt.fmt.pix.field = V4L2_FIELD_NONE;
 
 	if (-1 == xioctl(fd, VIDIOC_S_FMT, &fmt))
 	{
-		perror("Setting Pixel Format");
+		printf("Setting Pixel Format\r\n");
 		return 1;
 	}
 
@@ -53,7 +53,7 @@ int init_mmap(int fd)
  
     if (-1 == xioctl(fd, VIDIOC_REQBUFS, &req))
     {
-        perror("Requesting Buffer");
+        printf("Requesting Buffer\r\n");
         return 1;
     }
  
@@ -63,17 +63,20 @@ int init_mmap(int fd)
     buf.index = 0;
     if(-1 == xioctl(fd, VIDIOC_QUERYBUF, &buf))
     {
-        perror("Querying Buffer");
+        printf("Querying Buffer\r\n");
         return 1;
     }
  
     buffer = mmap (NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, buf.m.offset);
 	buffer_length = buf.length;
  
+	printf("Allocated %d bytes\r\n", buffer_length);
+	printf("Image size = %dx%d\r\n", width, height);
+
     return 0;
 }
  
-int capture_image(int fd, int index)
+int capture_image(int fd)
 {
     struct v4l2_buffer buf = {0};
     buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -115,12 +118,12 @@ int capture_image(int fd, int index)
 
 unsigned char tmpBuf[] = {
 0x42, 0x4D, 0x36, 0x10, 0x0E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x36, 0x00, 0x00, 0x00, 0x28, 0x00, 
-0x00, 0x00, 0x80, 0x02, 0x00, 0x00, 0xE0, 0x01, 0x00, 0x00, 0x01, 0x00, 0x18, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x68, 0x06, 0x00, 0x00, 0xD0, 0x04, 0x00, 0x00, 0x01, 0x00, 0x18, 0x00, 0x00, 0x00, 
 0x00, 0x00, 0x00, 0x10, 0x0E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
-int save2file(char *filename)
+int save2file(char *filename, unsigned char *sBuf)
 {
 	FILE *fpO;
 
@@ -129,9 +132,9 @@ int save2file(char *filename)
 	for(int i=0; i<width*height; i++)
 	{
 		unsigned char buf[3];
-		buf[0] = buffer[i];
-		buf[1] = buffer[i];
-		buf[2] = buffer[i];
+		buf[0] = sBuf[i];
+		buf[1] = sBuf[i];
+		buf[2] = sBuf[i];
 
 		fwrite(buf, 3, 1, fpO);
 	}
@@ -149,7 +152,7 @@ int main()
         fd = open("/dev/video0", O_RDWR);
         if (fd == -1)
         {
-                perror("Opening video device");
+                printf("Opening video device\r\n");
                 return 1;
         }
 
@@ -158,10 +161,9 @@ int main()
         
         if(init_mmap(fd))
             return 1;
-        int i;
 
-        capture_image(fd, 0);
-		save2file("output.bmp");
+        capture_image(fd);
+	save2file("output.bmp", buffer);
 
         close(fd);
         return 0;
